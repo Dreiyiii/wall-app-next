@@ -30,7 +30,7 @@ function App() {
     { name: "Alyssa", time: "15m ago", message: "Wow this looks amazing already 😍" },
     { name: "Ken", time: "10m ago", message: "Let me know if you need help testing it!" },
     { name: "Julia", time: "5m ago", message: "This is shaping up nicely." },
-    { name: "Dave", time: "1 day ago", message: "Proud of you, James!" },
+    { name: "Dave", time: "5h ago", message: "Proud of you, James!" },
   ];
 
   const fetchPosts = async () => {
