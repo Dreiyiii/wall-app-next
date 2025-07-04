@@ -1,103 +1,255 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import React, { useEffect, useState } from "react";
+import myImage from "./public/my-profile.JPG";
+import { supabase } from "/src/lib/supabase.ts";
+import { formatDistanceToNow } from "date-fns";
+
+function App() {
+  const [message, setMessage] = useState("");
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const user = {
+    name: "James Pascua",
+  };
+
+  const staticPosts = [
+    {
+      name: "Sheryl",
+      time: "3h ago",
+      message: "Hello James! You're doing well. It is soon to be done.",
+    },
+    {
+      name: "Carlos",
+      time: "2h ago",
+      message: "Congrats on your progress! Keep pushing.",
+    },
+    {
+      name: "Mika",
+      time: "1h ago",
+      message: "Just saw your post. Nice work!",
+    },
+    {
+      name: "Ryan",
+      time: "30m ago",
+      message: "Can't wait to see the final result!",
+    },
+    {
+      name: "Alyssa",
+      time: "15m ago",
+      message: "Wow this looks amazing already 😍",
+    },
+    {
+      name: "Ken",
+      time: "10m ago",
+      message: "Let me know if you need help testing it!",
+    },
+    {
+      name: "Julia",
+      time: "5m ago",
+      message: "This is shaping up nicely.",
+    },
+    {
+      name: "Dave",
+      time: "just now",
+      message: "Proud of you, James!",
+    },
+  ];
+
+  const fetchPosts = async () => {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error) {
+      setPosts(data);
+    } else {
+      console.error("Error fetching posts:", error.message);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadImage = async (file) => {
+    const filePath = `${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage
+      .from("post-images")
+      .upload(filePath, file);
+
+    if (error) {
+      console.error("Image upload error:", error.message);
+      return null;
+    }
+
+    const { data: publicData } = supabase.storage
+      .from("post-images")
+      .getPublicUrl(filePath);
+
+    return publicData?.publicUrl || null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!message.trim() && !image) return;
+
+    setUploading(true);
+
+    let imageUrl = null;
+    if (image) {
+      imageUrl = await uploadImage(image);
+    }
+
+    const { error } = await supabase.from("posts").insert({
+      body: message,
+      image_url: imageUrl,
+    });
+
+    if (error) {
+      console.error("Error inserting post:", error.message);
+    } else {
+      setMessage("");
+      setImage(null);
+      setImagePreview(null);
+    }
+
+    setUploading(false);
+  };
+
+  useEffect(() => {
+    fetchPosts();
+
+    const channel = supabase
+      .channel("realtime:posts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts" },
+        (payload) => {
+          setPosts((prev) => [payload.new, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <div className="bg-gray-100 main-container w-screen h-screen overflow-x-hidden grid grid-rows-[auto_1fr] p-4">
+      <header className="bg-blue-500 text-white p-4 h-10 flex items-center rounded-t-xl">
+        <h1 className="font-bold">wall</h1>
+      </header>
+      <main className="flex gap-4 overflow-x-hidden">
+        <aside className="w-[288px] p-6 border-r border-gray-300">
+          <nav className="text-black">
+            <img
+              src="/my-profile.JPG"
+              alt="My Profile"
+              className="w-[200px] h-[280px] rounded object-cover"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+            <h1 className="text-xl font-semibold mt-2">{user.name}</h1>
+            <h3 className="text-sm mt-2">Wall</h3>
+            <button className="text-sm shadow-md my-6 p-2 bg-gray-200">
+              Information
+            </button>
+            <h4 className="text-sm font-semibold">Networks</h4>
+            <h4 className="text-xs font-thin">UCU Alumni</h4>
+            <h4 className="text-sm font-semibold mt-2">Current City</h4>
+            <h4 className="text-xs font-thin">Tarlac, PH</h4>
+          </nav>
+        </aside>
+
+        <section className="flex-1 p-6 text-black overflow-y-auto">
+          <form onSubmit={handleSubmit} className="mb-8 space-y-3">
+            <textarea
+              value={message}
+              onChange={(e) =>
+                e.target.value.length <= 280 && setMessage(e.target.value)
+              }
+              placeholder="What's on your mind?"
+              className="w-full bg-blue-100 text-gray-800 font-semibold text-sm p-4 rounded-sm shadow-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none h-[100px]"
+            />
+            <h5 className="text-sm text-gray-500 font-semibold">
+              {280 - message.length} characters remaining
+            </h5>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="text-sm"
+            />
+
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="mt-2 max-h-64 rounded border"
+              />
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 transition-all duration-200 shadow-md text-sm text-white font-semibold p-2 px-6 rounded"
+                disabled={uploading || (!message.trim() && !image)}
+              >
+                {uploading ? "Posting..." : "Share"}
+              </button>
+            </div>
+          </form>
+          {posts.map((post) => (
+            <section
+              key={post.id}
+              className="w-full border-b mt-2 border-gray-300 pb-2"
+            >
+              <div className="flex justify-between mb-1">
+                <h2 className="text-lg font-semibold">{user.name}</h2>
+                <h5 className="text-sm font-semibold text-gray-800">
+                  {formatDistanceToNow(new Date(post.created_at), {
+                    addSuffix: true,
+                  })}
+                </h5>
+              </div>
+              <h3 className="text-base">{post.body}</h3>
+              {post.image_url && (
+                <img
+                  src={post.image_url}
+                  alt="Post"
+                  className="w-full max-w-md max-h-72 object-contain"
+                />
+              )}
+            </section>
+          ))}
+
+          {staticPosts.map((post, index) => (
+            <section
+              key={`static-${index}`}
+              className="w-full border-b mt-2 border-gray-300 pb-2"
+            >
+              <div className="flex justify-between mb-1">
+                <h2 className="text-lg font-semibold">{post.name}</h2>
+                <h5 className="text-sm font-semibold text-gray-800">
+                  {post.time}
+                </h5>
+              </div>
+              <h3 className="text-base">{post.message}</h3>
+            </section>
+          ))}
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
+
+export default App;
