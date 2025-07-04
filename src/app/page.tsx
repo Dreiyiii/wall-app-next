@@ -141,8 +141,8 @@ function App() {
               {280 - message.length} characters remaining
             </h5>
 
-            <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
-            {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 max-h-64 rounded border" />}
+            <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm shadow-md p-2 bg-gray-300 w-22" />
+            {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 max-w-100 max-h-64 rounded border" />}
 
             <div className="flex justify-end">
               <button
