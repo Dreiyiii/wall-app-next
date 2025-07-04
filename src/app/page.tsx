@@ -1,62 +1,36 @@
-"use client"
+'use client'
 
 import React, { useEffect, useState } from "react";
-import myImage from "./public/my-profile.JPG";
-import { supabase } from "/src/lib/supabase.ts";
+import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 
 function App() {
-  const [message, setMessage] = useState("");
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  type Post = {
+    id: string;
+    body: string;
+    image_url: string | null;
+    created_at: string;
+  };
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [message, setMessage] = useState<string>("");
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
 
   const user = {
     name: "James Pascua",
   };
 
   const staticPosts = [
-    {
-      name: "Sheryl",
-      time: "3h ago",
-      message: "Hello James! You're doing well. It is soon to be done.",
-    },
-    {
-      name: "Carlos",
-      time: "2h ago",
-      message: "Congrats on your progress! Keep pushing.",
-    },
-    {
-      name: "Mika",
-      time: "1h ago",
-      message: "Just saw your post. Nice work!",
-    },
-    {
-      name: "Ryan",
-      time: "30m ago",
-      message: "Can't wait to see the final result!",
-    },
-    {
-      name: "Alyssa",
-      time: "15m ago",
-      message: "Wow this looks amazing already 😍",
-    },
-    {
-      name: "Ken",
-      time: "10m ago",
-      message: "Let me know if you need help testing it!",
-    },
-    {
-      name: "Julia",
-      time: "5m ago",
-      message: "This is shaping up nicely.",
-    },
-    {
-      name: "Dave",
-      time: "just now",
-      message: "Proud of you, James!",
-    },
+    { name: "Sheryl", time: "3h ago", message: "Hello James! You're doing well. It is soon to be done." },
+    { name: "Carlos", time: "2h ago", message: "Congrats on your progress! Keep pushing." },
+    { name: "Mika", time: "1h ago", message: "Just saw your post. Nice work!" },
+    { name: "Ryan", time: "30m ago", message: "Can't wait to see the final result!" },
+    { name: "Alyssa", time: "15m ago", message: "Wow this looks amazing already 😍" },
+    { name: "Ken", time: "10m ago", message: "Let me know if you need help testing it!" },
+    { name: "Julia", time: "5m ago", message: "This is shaping up nicely." },
+    { name: "Dave", time: "just now", message: "Proud of you, James!" },
   ];
 
   const fetchPosts = async () => {
@@ -65,14 +39,14 @@ function App() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) {
+    if (!error && data) {
       setPosts(data);
     } else {
-      console.error("Error fetching posts:", error.message);
+      console.error("Error fetching posts:", error?.message);
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImage(file);
@@ -80,39 +54,31 @@ function App() {
     }
   };
 
-  const uploadImage = async (file) => {
+  const uploadImage = async (file: File): Promise<string | null> => {
     const filePath = `${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage
-      .from("post-images")
-      .upload(filePath, file);
+    const { error } = await supabase.storage.from("post-images").upload(filePath, file);
 
     if (error) {
       console.error("Image upload error:", error.message);
       return null;
     }
 
-    const { data: publicData } = supabase.storage
-      .from("post-images")
-      .getPublicUrl(filePath);
-
+    const { data: publicData } = supabase.storage.from("post-images").getPublicUrl(filePath);
     return publicData?.publicUrl || null;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!message.trim() && !image) return;
 
     setUploading(true);
 
-    let imageUrl = null;
+    let imageUrl: string | null = null;
     if (image) {
       imageUrl = await uploadImage(image);
     }
 
-    const { error } = await supabase.from("posts").insert({
-      body: message,
-      image_url: imageUrl,
-    });
+    const { error } = await supabase.from("posts").insert({ body: message, image_url: imageUrl });
 
     if (error) {
       console.error("Error inserting post:", error.message);
@@ -127,18 +93,16 @@ function App() {
 
   useEffect(() => {
     fetchPosts();
-
     const channel = supabase
       .channel("realtime:posts")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "posts" },
         (payload) => {
-          setPosts((prev) => [payload.new, ...prev]);
+          setPosts((prev) => [payload.new as Post, ...prev]);
         }
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -152,16 +116,10 @@ function App() {
       <main className="flex gap-4 overflow-x-hidden">
         <aside className="w-[288px] p-6 border-r border-gray-300">
           <nav className="text-black">
-            <img
-              src="/my-profile.JPG"
-              alt="My Profile"
-              className="w-[200px] h-[280px] rounded object-cover"
-            />
+            <img src="/my-profile.JPG" alt="My Profile" className="w-[200px] h-[280px] rounded object-cover" />
             <h1 className="text-xl font-semibold mt-2">{user.name}</h1>
             <h3 className="text-sm mt-2">Wall</h3>
-            <button className="text-sm shadow-md my-6 p-2 bg-gray-200">
-              Information
-            </button>
+            <button className="text-sm shadow-md my-6 p-2 bg-gray-200">Information</button>
             <h4 className="text-sm font-semibold">Networks</h4>
             <h4 className="text-xs font-thin">UCU Alumni</h4>
             <h4 className="text-sm font-semibold mt-2">Current City</h4>
@@ -183,20 +141,8 @@ function App() {
               {280 - message.length} characters remaining
             </h5>
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="text-sm"
-            />
-
-            {imagePreview && (
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="mt-2 max-h-64 rounded border"
-              />
-            )}
+            <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
+            {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 max-h-64 rounded border" />}
 
             <div className="flex justify-end">
               <button
@@ -208,40 +154,25 @@ function App() {
               </button>
             </div>
           </form>
+
           {posts.map((post) => (
-            <section
-              key={post.id}
-              className="w-full border-b mt-2 border-gray-300 pb-2"
-            >
+            <section key={post.id} className="w-full border-b mt-2 border-gray-300 pb-2">
               <div className="flex justify-between mb-1">
                 <h2 className="text-lg font-semibold">{user.name}</h2>
                 <h5 className="text-sm font-semibold text-gray-800">
-                  {formatDistanceToNow(new Date(post.created_at), {
-                    addSuffix: true,
-                  })}
+                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                 </h5>
               </div>
               <h3 className="text-base">{post.body}</h3>
-              {post.image_url && (
-                <img
-                  src={post.image_url}
-                  alt="Post"
-                  className="w-full max-w-md max-h-72 object-contain"
-                />
-              )}
+              {post.image_url && <img src={post.image_url} alt="Post" className="w-full max-w-md max-h-72 object-contain" />}
             </section>
           ))}
 
           {staticPosts.map((post, index) => (
-            <section
-              key={`static-${index}`}
-              className="w-full border-b mt-2 border-gray-300 pb-2"
-            >
+            <section key={`static-${index}`} className="w-full border-b mt-2 border-gray-300 pb-2">
               <div className="flex justify-between mb-1">
                 <h2 className="text-lg font-semibold">{post.name}</h2>
-                <h5 className="text-sm font-semibold text-gray-800">
-                  {post.time}
-                </h5>
+                <h5 className="text-sm font-semibold text-gray-800">{post.time}</h5>
               </div>
               <h3 className="text-base">{post.message}</h3>
             </section>
